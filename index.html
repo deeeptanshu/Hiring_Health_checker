@@ -1,245 +1,110 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Candidate Pipeline Health Checker</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-  <style>
-    #metrics::-webkit-scrollbar {
-      height: 8px;
-      background: #f3f4f6;
-    }
-    #metrics::-webkit-scrollbar-thumb {
-      background: #d1d5db;
-      border-radius: 4px;
-    }
-  </style>
-  <script>
-    function getStatusIcon(status) {
-      if (status === 'Healthy') {
-        return `<span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-green-100 text-green-600 shadow-sm mr-2">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-          </svg>
-        </span>`;
-      }
-      if (status === 'Caution') {
-        return `<span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-yellow-100 text-yellow-600 shadow-sm mr-2">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20z"/>
-          </svg>
-        </span>`;
-      }
-      return `<span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-red-100 text-red-600 shadow-sm mr-2">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-        </svg>
-      </span>`;
-    }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pipeline Health Checker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-indigo-50 to-blue-50 min-h-screen flex items-center justify-center">
+  <div class="w-full max-w-5xl mx-auto p-8">
+    <h1 class="text-4xl font-extrabold text-center text-indigo-800 mb-8">Candidate Pipeline Health Checker</h1>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-    function getBadge(status) {
-      if (status === 'Healthy') {
-        return `<span class="inline-flex items-center px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-700 ml-2">Healthy</span>`;
-      }
-      if (status === 'Caution') {
-        return `<span class="inline-flex items-center px-2 py-1 rounded text-xs font-semibold bg-yellow-100 text-yellow-700 ml-2">Caution</span>`;
-      }
-      return `<span class="inline-flex items-center px-2 py-1 rounded text-xs font-semibold bg-red-100 text-red-700 ml-2">Critical</span>`;
-    }
-
-    function formatPercent(val) {
-      if (isNaN(val)) return '--';
-      return (val * 100).toFixed(1) + '%';
-    }
-
-    function getStatus(metric, value) {
-      if (metric === 'screeningPassRate') {
-        if (value < 0.05) return 'Critical';
-        if (value >= 0.05 && value < 0.10) return 'Caution';
-        if (value > 0.25) return 'Caution';
-        if (value >= 0.10 && value <= 0.25) return 'Healthy';
-      }
-      if (metric === 'technicalPassRate') {
-        if (value < 0.20) return 'Critical';
-        if (value < 0.35) return 'Caution';
-        return 'Healthy';
-      }
-      if (metric === 'offerRate') {
-        if (value < 0.10) return 'Critical';
-        if (value < 0.20) return 'Caution';
-        return 'Healthy';
-      }
-      if (metric === 'acceptanceRate') {
-        if (value < 0.60) return 'Critical';
-        if (value < 0.80) return 'Caution';
-        return 'Healthy';
-      }
-      if (metric === 'timeToFill') {
-        if (value > 60) return 'Critical';
-        if (value > 45) return 'Caution';
-        return 'Healthy';
-      }
-      return 'Healthy';
-    }
-
-    function renderMetrics(data) {
-      const metrics = [
-        {
-          key: 'screeningPassRate',
-          label: 'Applicants Who Passed Screening',
-          value: data.totalApplicants ? data.passedScreening / data.totalApplicants : NaN,
-          description: 'Passed screening / Total applicants',
-          tip: 'Healthy: 10%–25%. Too low = overly strict; too high = not enough filtering.'
-        },
-        {
-          key: 'technicalPassRate',
-          label: 'Technical Pass Rate',
-          value: data.passedScreening ? data.passedTechnical / data.passedScreening : NaN,
-          description: 'Passed technical / Passed screening',
-          tip: 'Healthy: 35%+. Low values may mean your tech bar is misaligned.'
-        },
-        {
-          key: 'offerRate',
-          label: 'Offers Given per Final Interview',
-          value: data.finalInterviews ? data.offersMade / data.finalInterviews : NaN,
-          description: 'Offers made / Final interviews',
-          tip: 'Healthy: 20%+. Low rates = interview misalignment or low quality.'
-        },
-        {
-          key: 'acceptanceRate',
-          label: 'Offer Acceptance Rate',
-          value: data.offersMade ? data.offersAccepted / data.offersMade : NaN,
-          description: 'Offers accepted / Offers made',
-          tip: 'Healthy: 80%+. Lower values may reflect weak candidate experience.'
-        },
-        {
-          key: 'timeToFill',
-          label: 'Time to Fill (in days)',
-          value: data.timeToFill || NaN,
-          description: 'Days from job posted to offer accepted',
-          tip: 'Healthy: <45 days. Over 60 days may signal process issues or bottlenecks.'
-        }
-      ];
-
-      let html = `<div class="flex flex-col gap-4 sm:grid sm:grid-cols-2 lg:grid-cols-3">`;
-      metrics.forEach(metric => {
-        const status = getStatus(metric.key, metric.value);
-        html += `
-          <div class="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col p-5 transition hover:shadow-md">
-            <div class="flex items-center mb-2">
-              ${getStatusIcon(status)}
-              <div>
-                <div class="text-base font-semibold text-gray-800">${metric.label}</div>
-                <div class="text-xs text-gray-500">${metric.description}</div>
-              </div>
-            </div>
-            <div class="flex items-center mt-2 mb-1">
-              <span class="text-2xl font-bold text-gray-900">${isNaN(metric.value) ? '--' : metric.key === 'timeToFill' ? metric.value + ' days' : formatPercent(metric.value)}</span>
-              ${getBadge(status)}
-            </div>
-            ${status !== 'Healthy' && !isNaN(metric.value) ? `
-              <div class="mt-2 text-sm text-red-600 flex items-start">
-                <svg class="w-4 h-4 mr-1 text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12A9 9 0 1 1 3 12a9 9 0 0 1 18 0z"/>
-                </svg>
-                <span>${metric.tip}</span>
-              </div>
-            ` : ''}
+      <!-- INPUT CARD -->
+      <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+        <h2 class="text-2xl font-bold text-indigo-600 mb-6">Please answer these questions:</h2>
+        <div class="space-y-5">
+          <div>
+            <label class="block text-sm font-medium text-gray-700">1. How many candidates applied in your last posting?</label>
+            <input id="applications" type="number" min="0" placeholder="e.g. 120" class="mt-2 w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 transition" />
           </div>
-        `;
+          <div>
+            <label class="block text-sm font-medium text-gray-700">2. Of those, how many completed the assessment?</label>
+            <input id="completedAssessment" type="number" min="0" placeholder="e.g. 80" class="mt-2 w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 transition" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">3. How many passed the technical interview?</label>
+            <input id="passedTechnical" type="number" min="0" placeholder="e.g. 35" class="mt-2 w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 transition" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">4. How many offers did you make?</label>
+            <input id="offersMade" type="number" min="0" placeholder="e.g. 10" class="mt-2 w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 transition" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">5. On average, how many days did it take from job post to accepted offer?</label>
+            <input id="timeToFill" type="number" min="0" placeholder="e.g. 40" class="mt-2 w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 transition" />
+          </div>
+        </div>
+        <div class="mt-8 flex justify-end space-x-4">
+          <button id="resetBtn" class="px-5 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition">Reset</button>
+          <button id="computeBtn" class="px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">Compute Results</button>
+        </div>
+      </div>
+
+      <!-- METRICS GRID -->
+      <div id="metrics" class="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+    </div>
+  </div>
+
+  <script>
+    // Metric definitions with reasoning and Intervue.io solutions
+    const METRICS = [
+      { id:'applications',   lab:'Applied',                  unit:'',    tip:'Total applicants',                                          reason:'Low volume creates a bottleneck.',                                  solution:'Intervue.io boosts reach with targeted postings.' },
+      { id:'completedAssessment', lab:'Assessment Completion Rate (%)', unit:'%', tip:'Good: ≥80%',          reason:'High drop-off indicates friction or unclear instructions.',           solution:'Auto-remind & simplify tests via Intervue.io.' },
+      { id:'passedTechnical', lab:'Technical Pass Rate (%)',   unit:'%', tip:'Good: 30–50%',           reason:'Pass rate outside ideal range (30–50%).',                           solution:'Standardize scoring using Intervue.io rubrics.' },
+      { id:'offersMade',      lab:'Offer Rate (%)',           unit:'%', tip:'Good: 20–30%',           reason:'Low offer rate signals misalignment in final rounds.',                solution:'Aggregate panel feedback with Intervue.io.' },
+      { id:'timeToFill',      lab:'Time to Fill (days)',      unit:'days', tip:'Good: <45 days',         reason:'Cycle too long, indicating process bottlenecks.',                     solution:'Automate scheduling & reminders with Intervue.io.' }
+    ];
+
+    function stat(id, v) {
+      switch(id) {
+        case 'completedAssessment': return v < 80 ? 'Caution' : 'Healthy';
+        case 'passedTechnical':    if (v < 30) return 'Critical'; if (v > 50) return 'Caution'; return 'Healthy';
+        case 'offersMade':          return v < 20 ? 'Caution' : 'Healthy';
+        case 'timeToFill':          if (v > 60) return 'Critical'; if (v > 45) return 'Caution'; return 'Healthy';
+        default:                    return 'Healthy';
+      }
+    }
+
+    function renderResults() {
+      const vals = {
+        applications:        +document.getElementById('applications').value || 0,
+        completedAssessment: +document.getElementById('completedAssessment').value || 0,
+        passedTechnical:    +document.getElementById('passedTechnical').value || 0,
+        offersMade:         +document.getElementById('offersMade').value || 0,
+        timeToFill:         +document.getElementById('timeToFill').value || 0
+      };
+
+      let html = '';
+      METRICS.forEach(m => {
+        const v = vals[m.id];
+        const s = stat(m.id, v);
+        const icon = s === 'Healthy'
+          ? '<svg class="w-6 h-6 text-green-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>'
+          : s === 'Critical'
+            ? '<svg class="w-6 h-6 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 18L18 6M6 6l12 12"/></svg>'
+            : '<svg class="w-6 h-6 text-yellow-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4m0 4h.01"/><circle cx="12" cy="12" r="10"/></svg>';
+
+        html += `
+          <div class="card bg-white p-6 rounded-2xl shadow hover:shadow-xl transition flex flex-col justify-between">
+            <div>
+              <div class="flex items-center mb-3">${icon}<h3 class="ml-3 text-xl font-semibold text-gray-800">${m.lab}</h3></div>
+              <p class="text-4xl font-bold text-indigo-600 mb-2">${v}${m.unit}</p>
+              <p class="text-sm text-gray-500 mb-4">${m.tip}</p>
+              ${s !== 'Healthy'
+                ? `<p class="text-sm text-red-600 mb-2"><strong>Issue:</strong> ${m.reason}</p>
+                   <p class="text-sm text-blue-600 mb-4"><strong>Help:</strong> ${m.solution}</p>`
+                : ''}
+            </div>
+            <p class="font-medium ${s==='Healthy'?'text-green-600':'text-yellow-600'} text-right">${s}</p>
+          </div>`;
       });
-      html += `</div>`;
       document.getElementById('metrics').innerHTML = html;
     }
 
-    document.addEventListener('DOMContentLoaded', function() {
-      const form = document.getElementById('pipeline-form');
-      form.classList.add('space-y-4', 'bg-white', 'rounded-xl', 'shadow', 'p-4', 'mb-6', 'max-w-2xl', 'mx-auto');
-      form?.querySelectorAll('input[type="number"]').forEach(input => {
-        input.classList.add('block', 'w-full', 'rounded-md', 'border-gray-300', 'shadow-sm', 'focus:border-blue-500', 'focus:ring-blue-500', 'text-base', 'py-2', 'px-3', 'mb-1');
-      });
-      form?.querySelectorAll('label').forEach(label => {
-        label.classList.add('block', 'text-sm', 'font-medium', 'text-gray-700', 'mb-1');
-      });
-      form?.querySelectorAll('button').forEach(btn => {
-        btn.classList.add('inline-flex', 'items-center', 'px-4', 'py-2', 'border', 'border-transparent', 'text-sm', 'font-medium', 'rounded-md', 'shadow-sm', 'text-white', 'bg-blue-600', 'hover:bg-blue-700', 'focus:outline-none', 'focus:ring-2', 'focus:ring-offset-2', 'focus:ring-blue-500', 'transition');
-      });
-      const resetBtn = document.getElementById('resetBtn');
-      if (resetBtn) {
-        resetBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
-        resetBtn.classList.add('bg-gray-100', 'text-gray-700', 'hover:bg-gray-200', 'ml-2');
-      }
-      form?.querySelectorAll('input').forEach(input => {
-        input.addEventListener('input', updateMetrics);
-      });
-      form?.addEventListener('submit', function(e) {
-        e.preventDefault();
-        updateMetrics();
-      });
-      resetBtn?.addEventListener('click', function() {
-        form.reset();
-        updateMetrics();
-      });
-      updateMetrics();
-    });
-
-    function getFormData() {
-      return {
-        totalApplicants: parseInt(document.getElementById('totalApplicants').value, 10) || 0,
-        passedScreening: parseInt(document.getElementById('passedScreening').value, 10) || 0,
-        passedTechnical: parseInt(document.getElementById('passedTechnical').value, 10) || 0,
-        finalInterviews: parseInt(document.getElementById('finalInterviews').value, 10) || 0,
-        offersMade: parseInt(document.getElementById('offersMade').value, 10) || 0,
-        offersAccepted: parseInt(document.getElementById('offersAccepted').value, 10) || 0,
-        timeToFill: parseInt(document.getElementById('timeToFill').value, 10) || NaN
-      };
-    }
-
-    function updateMetrics() {
-      renderMetrics(getFormData());
-    }
+    document.getElementById('computeBtn').onclick = renderResults;
+    document.getElementById('resetBtn').onclick   = () => { document.getElementById('metrics').innerHTML = ''; };
   </script>
-</head>
-<body class="bg-gray-100">
-  <div class="max-w-xl mx-auto p-4 bg-white rounded-lg shadow-md mt-6 mb-8">
-    <h2 class="text-2xl font-bold mb-4 text-gray-800 text-center">Candidate Pipeline Health Checker</h2>
-    <form id="pipeline-form">
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label for="totalApplicants">Total Applicants</label>
-          <input type="number" min="0" id="totalApplicants" name="totalApplicants" required />
-        </div>
-        <div>
-          <label for="passedScreening">Passed Screening</label>
-          <input type="number" min="0" id="passedScreening" name="passedScreening" required />
-        </div>
-        <div>
-          <label for="passedTechnical">Passed Technical</label>
-          <input type="number" min="0" id="passedTechnical" name="passedTechnical" required />
-        </div>
-        <div>
-          <label for="finalInterviews">Final Interviews</label>
-          <input type="number" min="0" id="finalInterviews" name="finalInterviews" required />
-        </div>
-        <div>
-          <label for="offersMade">Offers Made</label>
-          <input type="number" min="0" id="offersMade" name="offersMade" required />
-        </div>
-        <div>
-          <label for="offersAccepted">Offers Accepted</label>
-          <input type="number" min="0" id="offersAccepted" name="offersAccepted" required />
-        </div>
-        <div>
-          <label for="timeToFill">Time to Fill (days)</label>
-          <input type="number" min="0" id="timeToFill" name="timeToFill" required />
-        </div>
-      </div>
-      <div class="flex justify-between mt-6">
-        <button type="button" id="resetBtn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">Reset</button>
-      </div>
-    </form>
-    <div id="metrics" class="mt-8 space-y-6"></div>
-  </div>
 </body>
 </html>
